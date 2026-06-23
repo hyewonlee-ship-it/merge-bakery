@@ -1,0 +1,481 @@
+<title>Merge Bakery</title>
+<style>
+  :root{
+    --bg1:#2b1d3a; --bg2:#3d2a4f; --panel:#fff8f0; --panel2:#fff0e3;
+    --ink:#4a2f1b; --gold:#f4b740; --gold2:#e0962a; --pink:#ff8fb1;
+    --green:#5bbd6b; --blue:#5aa7e6; --shadow:rgba(60,20,40,.25);
+    --cell:#ffe9cf; --cellb:#e9c79c;
+  }
+  *{box-sizing:border-box; -webkit-tap-highlight-color:transparent}
+  html,body{margin:0;height:100%}
+  body{
+    font-family:"Trebuchet MS","Segoe UI",system-ui,sans-serif;
+    background:
+      radial-gradient(120% 80% at 50% -10%, #5a3a72 0%, var(--bg2) 40%, var(--bg1) 100%);
+    color:var(--ink); display:flex; justify-content:center;
+    min-height:100%; overflow-x:hidden;
+  }
+  #app{width:100%; max-width:480px; padding:10px 12px 24px; position:relative}
+
+  /* top bar */
+  .topbar{display:flex; gap:8px; align-items:center; margin-bottom:10px}
+  .logo{font-weight:800; font-size:20px; color:#fff; letter-spacing:.5px;
+    text-shadow:0 2px 0 var(--gold2),0 3px 6px rgba(0,0,0,.4); flex:1; white-space:nowrap}
+  .logo small{display:block;font-size:10px;color:#ffd9a8;font-weight:600;letter-spacing:1px}
+  .stat{display:flex;align-items:center;gap:4px;background:var(--panel);
+    border-radius:999px;padding:5px 11px 5px 8px;font-weight:800;font-size:14px;
+    box-shadow:0 3px 0 var(--cellb),0 5px 8px var(--shadow)}
+  .stat .ic{font-size:16px}
+  .stat.energy{cursor:pointer}
+  .lvlwrap{background:var(--panel);border-radius:14px;padding:7px 12px;margin-bottom:10px;
+    box-shadow:0 3px 0 var(--cellb),0 5px 8px var(--shadow)}
+  .lvlrow{display:flex;justify-content:space-between;font-size:12px;font-weight:800;margin-bottom:4px}
+  .bar{height:9px;background:#eadbc8;border-radius:99px;overflow:hidden}
+  .bar>i{display:block;height:100%;background:linear-gradient(90deg,var(--gold),var(--gold2));
+    width:0;transition:width .4s ease}
+
+  /* orders */
+  .orders{display:flex;gap:8px;margin-bottom:10px}
+  .order{flex:1;background:var(--panel);border-radius:14px;padding:8px 6px 7px;text-align:center;
+    box-shadow:0 3px 0 var(--cellb),0 5px 8px var(--shadow);position:relative;min-height:96px;
+    transition:transform .12s, box-shadow .12s}
+  .order.hot{outline:3px solid var(--green);outline-offset:-1px}
+  .order .who{font-size:22px}
+  .order .want{font-size:30px;line-height:1.1;margin:1px 0}
+  .order .lbl{font-size:9px;font-weight:700;color:#8a6f57;height:11px;overflow:hidden}
+  .order .rew{font-size:10px;font-weight:800;color:var(--gold2);margin-top:3px}
+  .order .chk{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
+    font-size:40px;background:rgba(91,189,107,.92);border-radius:14px;color:#fff;opacity:0;
+    transform:scale(.5);pointer-events:none}
+  .order.done .chk{animation:pop .5s ease}
+  @keyframes pop{0%{opacity:0;transform:scale(.3)}40%{opacity:1;transform:scale(1.1)}100%{opacity:0;transform:scale(1)}}
+
+  /* board */
+  .board{background:linear-gradient(160deg,#fff3e2,#ffe6cb);border-radius:20px;padding:9px;
+    box-shadow:inset 0 2px 6px rgba(150,90,40,.25),0 6px 0 var(--cellb),0 10px 16px var(--shadow);
+    display:grid;gap:6px;touch-action:none;user-select:none}
+  .cell{background:var(--cell);border-radius:13px;aspect-ratio:1;display:flex;
+    align-items:center;justify-content:center;position:relative;
+    box-shadow:inset 0 -3px 0 rgba(180,130,80,.25);font-size:clamp(20px,7vw,34px)}
+  .cell.empty{background:#f7dcb9;box-shadow:inset 0 2px 5px rgba(150,100,50,.22)}
+  .cell .item{width:100%;height:100%;display:flex;align-items:center;justify-content:center;
+    cursor:grab;position:relative;transition:transform .1s}
+  .cell .item:active{cursor:grabbing}
+  .cell.gen .item{cursor:pointer}
+  .cell .tier{position:absolute;bottom:1px;right:3px;font-size:9px;font-weight:800;
+    color:#fff;background:rgba(120,70,30,.7);border-radius:6px;padding:0 3px;line-height:13px}
+  .cell.gen{background:linear-gradient(160deg,#ffd98a,#ffb84d);
+    box-shadow:inset 0 -4px 0 rgba(180,110,30,.4),0 2px 5px rgba(150,80,20,.4)}
+  .cell.gen .gnm{position:absolute;top:-1px;left:0;right:0;font-size:8px;font-weight:800;
+    color:#7a4710;text-align:center}
+  .cell.gen .charge{position:absolute;bottom:1px;left:0;right:0;font-size:8.5px;font-weight:800;
+    color:#fff;text-shadow:0 1px 1px rgba(120,60,10,.8);text-align:center}
+  .cell.drop{outline:3px dashed var(--gold2);outline-offset:-3px}
+  .cell.mergeok{outline:3px solid var(--green);outline-offset:-3px;background:#d7f3d2}
+  .spawnpop{animation:spawn .35s cubic-bezier(.2,1.4,.5,1)}
+  @keyframes spawn{0%{transform:scale(0) rotate(-30deg)}100%{transform:scale(1)}}
+  .mergeflash{animation:mflash .5s ease}
+  @keyframes mflash{0%{transform:scale(.4)}55%{transform:scale(1.25)}100%{transform:scale(1)}}
+
+  /* drag ghost */
+  #ghost{position:fixed;z-index:60;pointer-events:none;font-size:40px;
+    filter:drop-shadow(0 6px 6px rgba(0,0,0,.4));transform:translate(-50%,-50%) scale(1.15);display:none}
+
+  /* sell bin */
+  .tray{display:flex;gap:8px;margin-top:10px;align-items:stretch}
+  .bin{flex:1;background:var(--panel);border-radius:14px;padding:9px;text-align:center;
+    font-weight:800;font-size:12px;color:#8a6f57;box-shadow:0 3px 0 var(--cellb),0 5px 8px var(--shadow)}
+  .bin .bi{font-size:24px}
+  .bin.drop{outline:3px dashed var(--gold2);background:var(--panel2)}
+  .hint{flex:2;background:var(--panel);border-radius:14px;padding:9px 11px;font-size:11px;
+    color:#7a6048;line-height:1.45;box-shadow:0 3px 0 var(--cellb),0 5px 8px var(--shadow)}
+  .hint b{color:var(--gold2)}
+
+  /* toast */
+  #toast{position:fixed;left:50%;bottom:26px;transform:translateX(-50%) translateY(20px);
+    background:rgba(40,20,30,.92);color:#fff;padding:9px 16px;border-radius:99px;font-weight:700;
+    font-size:13px;opacity:0;transition:.3s;z-index:80;pointer-events:none;white-space:nowrap}
+  #toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+  .float{position:fixed;z-index:70;font-weight:800;font-size:15px;pointer-events:none;
+    color:var(--gold2);text-shadow:0 1px 2px #fff;animation:rise 1s ease forwards}
+  @keyframes rise{0%{opacity:0;transform:translate(-50%,0) scale(.6)}
+    20%{opacity:1}100%{opacity:0;transform:translate(-50%,-46px) scale(1.1)}}
+
+  /* mansion banner */
+  .mansion{background:linear-gradient(160deg,#3a5a8f,#27406b);border-radius:16px;padding:10px 12px;
+    margin-bottom:10px;color:#eaf2ff;box-shadow:0 5px 10px var(--shadow);display:flex;gap:10px;align-items:center}
+  .mansion .scene{font-size:30px;filter:drop-shadow(0 2px 3px rgba(0,0,0,.4))}
+  .mansion .mt{flex:1}
+  .mansion .mt b{font-size:13px}
+  .mansion .mt .sub{font-size:10px;opacity:.85}
+  .mansion .stars{font-size:13px;letter-spacing:1px}
+
+  .btn{background:linear-gradient(180deg,var(--gold),var(--gold2));color:#fff;border:none;
+    border-radius:99px;padding:6px 14px;font-weight:800;font-size:12px;cursor:pointer;
+    box-shadow:0 3px 0 #b3711d}
+  .btn:active{transform:translateY(2px);box-shadow:0 1px 0 #b3711d}
+
+  /* modal */
+  #modal{position:fixed;inset:0;background:rgba(20,10,25,.6);display:none;
+    align-items:center;justify-content:center;z-index:90;padding:20px}
+  #modal .card{background:var(--panel);border-radius:20px;padding:20px 22px;max-width:340px;
+    text-align:center;box-shadow:0 12px 30px rgba(0,0,0,.4)}
+  #modal h2{margin:.2em 0 .3em;font-size:22px;color:var(--gold2)}
+  #modal p{font-size:13px;line-height:1.6;color:#5a4632;margin:.3em 0}
+  #modal .big{font-size:46px;margin-bottom:4px}
+</style>
+
+<div id="app">
+  <div class="topbar">
+    <div class="logo">🧁 MERGE BAKERY<small>RESTORE THE GRAND PÂTISSERIE</small></div>
+    <div class="stat" id="coinStat"><span class="ic">🪙</span><span id="coins">0</span></div>
+    <div class="stat energy" id="energyStat" title="Tap for energy"><span class="ic">⚡</span><span id="energy">0</span></div>
+  </div>
+
+  <div class="lvlwrap">
+    <div class="lvlrow"><span>👩‍🍳 Baker Lv.<span id="lvl">1</span></span><span id="xptxt">0/50 XP</span></div>
+    <div class="bar"><i id="xpbar"></i></div>
+  </div>
+
+  <div class="mansion">
+    <div class="scene" id="scene">🏚️</div>
+    <div class="mt"><b id="mtitle">The old pâtisserie lies in ruins…</b>
+      <div class="sub" id="msub">Complete orders to earn restoration stars ⭐</div></div>
+    <div class="stars" id="stars">☆☆☆☆☆</div>
+  </div>
+
+  <div class="orders" id="orders"></div>
+
+  <div class="board" id="board"></div>
+
+  <div class="tray">
+    <div class="bin" id="sellbin" data-sell="1"><div class="bi">🗑️</div>Sell<br><span style="font-size:9px">drag here</span></div>
+    <div class="hint">Tap a <b>golden generator</b> to make ingredients (uses ⚡).
+      Drag one item onto an <b>identical</b> one to merge it up a tier.
+      Drag finished goods up to <b>orders</b> for 🪙 &amp; XP.</div>
+  </div>
+</div>
+
+<div id="ghost"></div>
+<div id="toast"></div>
+<div id="modal"><div class="card">
+  <div class="big" id="mdEmoji">⭐</div><h2 id="mdTitle"></h2><p id="mdBody"></p>
+  <button class="btn" onclick="document.getElementById('modal').style.display='none'">Sweet!</button>
+</div></div>
+
+<script>
+/* ============ DATA ============ */
+const CH = {
+  bread:{name:"Bakery",items:[
+    ["🌾","Wheat"],["🌰","Grain"],["🥣","Dough"],["🥖","Baguette"],
+    ["🥐","Croissant"],["🍞","Loaf"],["🥪","Sandwich"],["🎂","Grand Cake"]]},
+  sweet:{name:"Sweets",items:[
+    ["🍬","Candy"],["🍭","Lollipop"],["🧁","Cupcake"],["🍩","Donut"],
+    ["🍪","Cookie"],["🥧","Pie"],["🍰","Slice"],["🍮","Royal Flan"]]},
+  brew:{name:"Café",items:[
+    ["🫘","Bean"],["☕","Coffee"],["🥛","Latte"],["🧋","Bubble Tea"],
+    ["🍵","Matcha"],["🥤","Frappé"],["🍹","Special"],["🍸","Café Royale"]]},
+};
+const GENS = [
+  {id:"oven", icon:"🔥", nm:"Oven",  chain:"bread", cost:3, max:9},
+  {id:"cart", icon:"🍯", nm:"Pantry",chain:"sweet", cost:3, max:9},
+  {id:"bar",  icon:"☕", nm:"Café",  chain:"brew",  cost:4, max:7},
+];
+const COLS=6, ROWS=7, N=COLS*ROWS;
+const SELL_VALUE=[1,2,4,8,16,32,64,128];        // coins per tier when sold
+const SCENES=["🏚️","🏚️","🛖","🏠","🏡","🏢","🏪","🏰"]; // restoration stages
+
+/* ============ STATE ============ */
+let S = load() || {
+  coins:30, energy:60, energyMax:60, lvl:1, xp:0, stars:0,
+  board:Array(N).fill(null), orders:[], lastEnergy:nowSec(),
+};
+function nowSec(){return Math.floor(Date.now()/1000)}
+
+/* place generators on first load */
+if(!S.board.some(c=>c&&c.gen)){
+  const slots=[2, COLS*3+0, COLS*4+5];
+  GENS.forEach((g,i)=>{ S.board[slots[i]]={gen:g.id, charge:g.max}; });
+}
+if(S.orders.length<3){ while(S.orders.length<3) S.orders.push(newOrder()); }
+
+/* ============ HELPERS ============ */
+function load(){ try{return JSON.parse(localStorage.getItem("mergebakery"))}catch(e){return null} }
+function save(){ localStorage.setItem("mergebakery", JSON.stringify(S)); }
+function xpNeed(){ return 40 + S.lvl*30; }
+function chainOf(id){ return CH[id]; }
+function rnd(a){ return a[Math.floor(Math.random()*a.length)]; }
+function emptyCells(){ return S.board.map((c,i)=>c?null:i).filter(i=>i!==null); }
+
+function newOrder(){
+  // pick a chain + a target tier scaled to level
+  const cid = rnd(Object.keys(CH));
+  const maxT = Math.min(CH[cid].items.length-1, 2 + Math.floor(S.lvl/2));
+  const tier = 2 + Math.floor(Math.random()*Math.max(1,maxT-1)); // at least tier2 (Dough/Cupcake/Latte)
+  const t = Math.min(tier, CH[cid].items.length-1);
+  const customers=["🧑","👩","👴","🧒","👨‍🦰","👩‍🦱","🧓","👱‍♀️"];
+  return {chain:cid, tier:t, who:rnd(customers),
+    coins:(t+1)*7 + Math.floor(Math.random()*6), xp:(t+1)*5, done:false};
+}
+
+/* ============ RENDER ============ */
+const boardEl=document.getElementById("board");
+boardEl.style.gridTemplateColumns=`repeat(${COLS},1fr)`;
+
+function render(){
+  // stats
+  set("coins",S.coins); set("energy",`${S.energy}/${S.energyMax}`);
+  set("lvl",S.lvl); set("xptxt",`${S.xp}/${xpNeed()} XP`);
+  document.getElementById("xpbar").style.width=Math.min(100,S.xp/xpNeed()*100)+"%";
+  // mansion
+  const stage=Math.min(SCENES.length-1,S.stars);
+  document.getElementById("scene").textContent=SCENES[stage];
+  document.getElementById("stars").textContent="★".repeat(S.stars)+"☆".repeat(Math.max(0,5-S.stars));
+  if(S.stars>0){
+    document.getElementById("mtitle").textContent=
+      ["","Foundations cleared!","Walls are up!","Windows sparkle!","Ovens roaring!","A Grand Pâtisserie reborn! 🎉"][Math.min(5,S.stars)];
+    document.getElementById("msub").textContent=`${S.stars} restoration star${S.stars>1?"s":""} earned`;
+  }
+  renderOrders();
+  renderBoard();
+  save();
+}
+function set(id,v){document.getElementById(id).textContent=v;}
+
+function renderOrders(){
+  const wrap=document.getElementById("orders"); wrap.innerHTML="";
+  S.orders.forEach((o,i)=>{
+    const it=CH[o.chain].items[o.tier];
+    const d=document.createElement("div");
+    d.className="order"; d.dataset.order=i;
+    d.innerHTML=`<div class="who">${o.who}</div>
+      <div class="want">${it[0]}</div>
+      <div class="lbl">${it[1]}</div>
+      <div class="rew">🪙${o.coins} · ${o.xp}XP</div>
+      <div class="chk">✓</div>`;
+    wrap.appendChild(d);
+  });
+}
+
+function renderBoard(){
+  boardEl.innerHTML="";
+  for(let i=0;i<N;i++){
+    const c=S.board[i];
+    const cell=document.createElement("div");
+    cell.dataset.idx=i;
+    if(!c){ cell.className="cell empty"; }
+    else if(c.gen){
+      const g=GENS.find(x=>x.id===c.gen);
+      cell.className="cell gen";
+      cell.innerHTML=`<div class="gnm">${g.nm}</div>
+        <div class="item" data-gen="${i}">${g.icon}</div>
+        <div class="charge">⚡${g.cost} · ${c.charge}/${g.max}</div>`;
+    } else {
+      const it=CH[c.chain].items[c.tier];
+      cell.className="cell";
+      cell.innerHTML=`<div class="item${c._fx?' '+c._fx:''}" draggable="false" data-item="${i}">${it[0]}<span class="tier">${c.tier+1}</span></div>`;
+      if(c._fx) delete c._fx;
+    }
+    boardEl.appendChild(cell);
+  }
+}
+
+/* ============ ACTIONS ============ */
+function produce(idx){
+  const c=S.board[idx]; if(!c||!c.gen) return;
+  const g=GENS.find(x=>x.id===c.gen);
+  if(S.energy < g.cost){ toast("Not enough energy ⚡"); flashEnergy(); return; }
+  if(c.charge<=0){ toast(`${g.nm} is empty — recharging ☀️`); return; }
+  const empties=emptyCells();
+  if(!empties.length){ toast("Board is full!"); return; }
+  S.energy-=g.cost; c.charge--;
+  // spawn a low tier item (tier 0 or 1)
+  const tier=Math.random()<0.65?0:1;
+  const target=rnd(empties);
+  S.board[target]={chain:g.chain, tier, _fx:"spawnpop"};
+  floatText(idx,`-${g.cost}⚡`,"#5aa7e6");
+  render();
+}
+
+function tryMerge(from,to){
+  const a=S.board[from], b=S.board[to];
+  if(!a||!b||a.gen||b.gen) return false;
+  if(a.chain!==b.chain||a.tier!==b.tier) return false;
+  const maxT=CH[a.chain].items.length-1;
+  if(b.tier>=maxT){ toast("Already max tier! Sell or deliver it."); return false; }
+  S.board[to]={chain:b.chain, tier:b.tier+1, _fx:"mergeflash"};
+  S.board[from]=null;
+  gainXP(2); floatText(to,"+2XP","#5bbd6b");
+  if(S.board[to].tier===maxT) toast("✨ Top tier crafted!");
+  render();
+  return true;
+}
+
+function move(from,to){
+  if(S.board[to]) return false;
+  S.board[to]=S.board[from]; S.board[from]=null; render(); return true;
+}
+
+function deliver(idx,oi){
+  const c=S.board[idx], o=S.orders[oi];
+  if(!c||c.gen||o.done) return false;
+  if(c.chain!==o.chain||c.tier!==o.tier){ toast("That's not what they ordered 🤔"); return false; }
+  o.done=true;
+  S.board[idx]=null;
+  S.coins+=o.coins; gainXP(o.xp);
+  renderOrders();
+  const od=document.querySelector(`.order[data-order="${oi}"]`);
+  if(od){ od.classList.add("done"); floatRect(od,`+🪙${o.coins}`,"#e0962a"); }
+  toast(`Order complete! +🪙${o.coins} +${o.xp}XP`);
+  // restoration star every 3 deliveries (tracked via counter)
+  S.delivered=(S.delivered||0)+1;
+  if(S.delivered%3===0 && S.stars<5){ S.stars++; starModal(); }
+  setTimeout(()=>{ S.orders[oi]=newOrder(); render(); }, 650);
+  render();
+  return true;
+}
+
+function sell(idx){
+  const c=S.board[idx]; if(!c||c.gen) return false;
+  const v=SELL_VALUE[c.tier]||1;
+  S.coins+=v; S.board[idx]=null;
+  toast(`Sold for 🪙${v}`); render(); return true;
+}
+
+function gainXP(n){
+  S.xp+=n;
+  while(S.xp>=xpNeed()){
+    S.xp-=xpNeed(); S.lvl++; S.energyMax+=10; S.energy=S.energyMax;
+    // recharge all generators on level up
+    S.board.forEach(c=>{ if(c&&c.gen){ const g=GENS.find(x=>x.id===c.gen); c.charge=g.max; }});
+    levelModal();
+  }
+}
+
+/* energy regen + generator recharge */
+function tick(){
+  const now=nowSec(); const dt=now-(S.lastEnergy||now);
+  if(dt>=8 && S.energy<S.energyMax){
+    const add=Math.floor(dt/8);
+    S.energy=Math.min(S.energyMax,S.energy+add);
+    S.lastEnergy=now;
+    render();
+  }
+  // slowly recharge generators
+  S._genTick=(S._genTick||0)+1;
+  if(S._genTick%5===0){
+    let ch=false;
+    S.board.forEach(c=>{ if(c&&c.gen){ const g=GENS.find(x=>x.id===c.gen);
+      if(c.charge<g.max){ c.charge++; ch=true; } }});
+    if(ch) render();
+  }
+}
+setInterval(tick,2000);
+
+document.getElementById("energyStat").onclick=()=>{
+  if(S.coins>=20 && S.energy<S.energyMax){ S.coins-=20; S.energy=Math.min(S.energyMax,S.energy+30);
+    toast("+30⚡ for 🪙20"); render(); }
+  else if(S.energy>=S.energyMax) toast("Energy already full ⚡");
+  else toast("Need 🪙20 to refill energy");
+};
+
+/* ============ DRAG ENGINE ============ */
+let drag=null;
+const ghost=document.getElementById("ghost");
+
+boardEl.addEventListener("pointerdown",e=>{
+  const itm=e.target.closest(".item"); if(!itm) return;
+  const cell=itm.closest(".cell"); const idx=+cell.dataset.idx;
+  const c=S.board[idx]; if(!c) return;
+  if(c.gen){ drag={gen:true,idx,moved:false}; return; }
+  drag={idx,moved:false,startX:e.clientX,startY:e.clientY,emoji:CH[c.chain].items[c.tier][0]};
+  cell.querySelector(".item").style.opacity=".25";
+  boardEl.setPointerCapture(e.pointerId);
+});
+
+boardEl.addEventListener("pointermove",e=>{
+  if(!drag||drag.gen) return;
+  const dx=e.clientX-drag.startX, dy=e.clientY-drag.startY;
+  if(!drag.moved && Math.hypot(dx,dy)<6) return;
+  drag.moved=true;
+  ghost.style.display="block"; ghost.textContent=drag.emoji;
+  ghost.style.left=e.clientX+"px"; ghost.style.top=e.clientY+"px";
+  // highlight target
+  clearHL();
+  const el=document.elementFromPoint(e.clientX,e.clientY);
+  const tcell=el&&el.closest(".cell");
+  const torder=el&&el.closest(".order");
+  const tsell=el&&el.closest("[data-sell]");
+  if(tcell){ const ti=+tcell.dataset.idx; const tc=S.board[ti];
+    const src=S.board[drag.idx];
+    if(ti!==drag.idx){
+      if(tc&&!tc.gen&&src&&tc.chain===src.chain&&tc.tier===src.tier) tcell.classList.add("mergeok");
+      else if(!tc) tcell.classList.add("drop");
+    }
+  } else if(torder){ torder.classList.add("hot"); }
+  else if(tsell){ tsell.classList.add("drop"); }
+});
+
+function endDrag(e){
+  if(!drag) return;
+  if(drag.gen){ if(!drag.moved) produce(drag.idx); drag=null; return; }
+  ghost.style.display="none";
+  const src=drag.idx;
+  if(!drag.moved){ drag=null; render(); return; } // simple tap on item = nothing
+  const el=document.elementFromPoint(e.clientX,e.clientY);
+  clearHL();
+  const tcell=el&&el.closest(".cell");
+  const torder=el&&el.closest(".order");
+  const tsell=el&&el.closest("[data-sell]");
+  drag=null;
+  if(tsell){ sell(src); return; }
+  if(torder){ deliver(src,+torder.dataset.order); return; }
+  if(tcell){
+    const ti=+tcell.dataset.idx;
+    if(ti===src){ render(); return; }
+    if(!tryMerge(src,ti)) move(src,ti);
+    return;
+  }
+  render();
+}
+boardEl.addEventListener("pointerup",endDrag);
+boardEl.addEventListener("pointercancel",()=>{drag=null;ghost.style.display="none";clearHL();render();});
+
+function clearHL(){ document.querySelectorAll(".drop,.mergeok,.order.hot")
+  .forEach(x=>x.classList.remove("drop","mergeok","hot")); }
+
+/* prevent native drag of emoji */
+boardEl.addEventListener("dragstart",e=>e.preventDefault());
+
+/* ============ FX ============ */
+let tt;
+function toast(msg){ const t=document.getElementById("toast"); t.textContent=msg;
+  t.classList.add("show"); clearTimeout(tt); tt=setTimeout(()=>t.classList.remove("show"),1500); }
+function floatText(idx,txt,color){
+  const cell=boardEl.querySelector(`.cell[data-idx="${idx}"]`); if(!cell) return;
+  floatRect(cell,txt,color);
+}
+function floatRect(el,txt,color){
+  const r=el.getBoundingClientRect();
+  const f=document.createElement("div"); f.className="float"; f.textContent=txt;
+  if(color)f.style.color=color;
+  f.style.left=(r.left+r.width/2)+"px"; f.style.top=(r.top+r.height/2)+"px";
+  document.body.appendChild(f); setTimeout(()=>f.remove(),1000);
+}
+function flashEnergy(){ const s=document.getElementById("energyStat");
+  s.animate([{transform:"scale(1)"},{transform:"scale(1.25)"},{transform:"scale(1)"}],{duration:300}); }
+
+function levelModal(){ showModal("🎉","Level "+S.lvl+"!",
+  "Energy cap +10 and fully refilled. All generators recharged. Orders now ask for fancier treats!"); }
+function starModal(){ showModal("⭐","Restoration Star!",
+  `You earned star ${S.stars}/5. The pâtisserie ${["","is being cleaned up","is rebuilt","gleams","bustles with bakers","shines as a Grand Pâtisserie! 🏰"][Math.min(5,S.stars)]}.`); }
+function showModal(emoji,title,body){
+  document.getElementById("mdEmoji").textContent=emoji;
+  document.getElementById("mdTitle").textContent=title;
+  document.getElementById("mdBody").textContent=body;
+  document.getElementById("modal").style.display="flex";
+}
+
+/* boot */
+render();
+</script>
