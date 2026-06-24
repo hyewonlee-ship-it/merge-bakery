@@ -108,7 +108,8 @@
   .mansion .mt{flex:1}
   .mansion .mt b{font-size:13px}
   .mansion .mt .sub{font-size:10px;opacity:.85}
-  .mansion .stars{font-size:13px;letter-spacing:1px}
+  .mansion .stars{font-size:13px;letter-spacing:1px;display:flex;gap:4px;align-items:center}
+  .mansion .stars img{width:24px;height:24px;object-fit:contain}
 
   .btn{background:linear-gradient(180deg,var(--gold),var(--gold2));color:#fff;border:none;
     border-radius:99px;padding:6px 14px;font-weight:800;font-size:12px;cursor:pointer;
@@ -141,7 +142,7 @@
     <div class="scene" id="scene">🏚️</div>
     <div class="mt"><b id="mtitle">The old pâtisserie lies in ruins…</b>
       <div class="sub" id="msub">Complete orders to earn restoration stars ⭐</div></div>
-    <div class="stars" id="stars">☆☆☆☆☆</div>
+    <div class="stars" id="stars"></div>
   </div>
 
   <div class="orders" id="orders"></div>
@@ -230,7 +231,14 @@ function render(){
   // mansion
   const stage=Math.min(SCENES.length-1,S.stars);
   document.getElementById("scene").textContent=SCENES[stage];
-  document.getElementById("stars").textContent="★".repeat(S.stars)+"☆".repeat(Math.max(0,5-S.stars));
+  const starsDiv=document.getElementById("stars");
+  starsDiv.innerHTML="";
+  for(let i=0;i<5;i++){
+    const img=document.createElement("img");
+    img.src=i<S.stars?"heart_filled.png":"heart_empty.png";
+    img.alt="heart";
+    starsDiv.appendChild(img);
+  }
   if(S.stars>0){
     document.getElementById("mtitle").textContent=
       ["","Foundations cleared!","Walls are up!","Windows sparkle!","Ovens roaring!","A Grand Pâtisserie reborn! 🎉"][Math.min(5,S.stars)];
